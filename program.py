@@ -40,6 +40,7 @@ class Blinker:
         return self.current + self.off_duration
 
     def tick(self):
+        """Switch to the next state depends on set duration."""
         next_cycle = self.get_next_tick_time()
         now = datetime.now()
         if now > next_cycle:
@@ -82,13 +83,15 @@ class RandBlinker(Blinker):
         
 
 class PeriodicJob:
+    """Change blinker state."""
+    
     def __init__(self, channel):
         self.channel = channel
         self.mode = persisted_mode()
         duration, off_duration = 0.8, 0.1
         if not self.mode:
             duration, off_duration = off_duration, duration
-        self.blinker = Blinker(channel, duration=durations[0], off_duration=durations[1])
+        self.blinker = Blinker(channel, duration=duration, off_duration=off_duration)
         
     def tick(self):
         now = datetime.now()
