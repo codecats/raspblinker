@@ -2,11 +2,29 @@ import RPi.GPIO as GPIO
 from time import sleep
 from datetime import datetime, timedelta
 import random
+from contextlib import closing
+import sqlite3
 
 GPIO.setmode(GPIO.BCM)
 
+def persisted_mode():
+    """Return truly value, switch state and save it."""
+    with closing(sqlite3.connect("blinker.db")) as connection:
+        with closing(connection.cursor()) as cursor:
+            current_state = cursor.execute(
+                "SELECT is_night FROM mode"
+            ).fetchall()[0][0] == 1
+            new_state = not current_state
+            cursor.execute(
+                "UPDATE mode SET is_night = ? WHERE is_night = ?",
+                (new_state, current_state)
+            )
+            connection.commit()
+    return current_state
+
+
 class Blinker:
-    def __init__(self, channel, duration=5, off_duration=None, initial=True):
+    def __init__(self, channel, duration=5, off_duration=None, initial=False):
         if not off_duration:
             off_duration = duration
         self.duration = timedelta(0, duration)
@@ -66,31 +84,18 @@ class RandBlinker(Blinker):
 class PeriodicJob:
     def __init__(self, channel):
         self.channel = channel
-        self.blinker = Blinker(channel, duration=.4, off_duration=.9, initial=False)
-        self.is_on = False
-        self.pulse = None
-        self.pulse_start = None
-
+        self.mode = persisted_mode()
+        duration, off_duration = 0.8, 0.1
+        if not self.mode:
+            duration, off_duration = off_duration, duration
+        self.blinker = Blinker(channel, duration=durations[0], off_duration=durations[1])
+        
     def tick(self):
         now = datetime.now()
-        if now.minute % 15 == 0 and now.second <=10 or (self.pulse and self.pulse > now):
-        #if now.second < 30:
+        if now.minute % 15 == 0 and now.second <=25:
             self.blinker.tick()
-            self.is_on = True
-        elif self.is_on:
-            self.blinker.turn_on(False) # turn off
-
-    def on_press(self, btn):
-        if not self.pulse_start:
-            self.pulse_start = datetime.now()
-
-    def on_release(self, btn):
-        if self.pulse_start:
-            now =  datetime.now()
-            difference = now - self.pulse_start
-            self.pulse = now + difference * 4
-            self.pulse_start = None
-
+        else:
+            self.blinker.turn_on(self.mode)
 
 
 class Button:
@@ -125,21 +130,16 @@ class Button:
             cb(self)
 
 
-blinker = RandBlinker(channel=4, duration=.1, off_duration=.5)
+#blinker = RandBlinker(channel=4, duration=.1, off_duration=.5)
 job = PeriodicJob(channel=3)
-button = Button(channel=2)
-
-button.callback_for_press = [blinker.on_button_press, job.on_press]
-button.callback_for_release = [blinker.on_button_release, job.on_release]
+#button = Button(channel=2)
 
 
 #pin is now outputting LOW by default
-try:
-    while True:
-        blinker.tick()
-        #job.tick()
-finally:
-    GPIO.cleanup()
-finally:
-    GPIO.cleanup()
+if __name__ == '__main__':
+    try:
+        while True:
+            job.tick()
+    finally:
+        GPIO.cleanup()
 
