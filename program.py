@@ -24,7 +24,7 @@ def persisted_mode():
 
 
 class Blinker:
-    def __init__(self, channel, duration=5, off_duration=None, initial=False):
+    def __init__(self, channel, duration=5, off_duration=None, initial=True):
         if not off_duration:
             off_duration = duration
         self.duration = timedelta(0, duration)
@@ -88,10 +88,15 @@ class PeriodicJob:
     def __init__(self, channel):
         self.channel = channel
         self.mode = persisted_mode()
-        duration, off_duration = 0.8, 0.1
+        duration, off_duration = 3, 0.1
         if not self.mode:
             duration, off_duration = off_duration, duration
         self.blinker = Blinker(channel, duration=duration, off_duration=off_duration)
+        for _ in range(2):
+            self.blinker.turn_on(True)
+            sleep(0.4)
+            self.blinker.turn_on(False)
+            sleep(0.4)
         
     def tick(self):
         now = datetime.now()
@@ -133,9 +138,7 @@ class Button:
             cb(self)
 
 
-#blinker = RandBlinker(channel=4, duration=.1, off_duration=.5)
-job = PeriodicJob(channel=3)
-#button = Button(channel=2)
+job = PeriodicJob(channel=2)
 
 
 #pin is now outputting LOW by default
